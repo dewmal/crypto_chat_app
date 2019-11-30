@@ -12,7 +12,7 @@ def make_and_save_user_rsa(passphrase, username):
     key = RSA.generate(2048)
 
     # encrpt key with passphrase using scrypt algo and store it in a file for later use
-    encrypted_key = key.export_key(passphrase=passphrase, pkcs=8, protection="28-CBC")
+    encrypted_key = key.export_key(passphrase=passphrase, pkcs=8, protection="scryptAndAES128-CBC")
 
     file_out = open(f"{username}_rsa_key.bin", "wb")
     file_out.write(encrypted_key)
