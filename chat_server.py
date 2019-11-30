@@ -33,7 +33,7 @@ def handle_client(client):  # Takes client socket as argument.
     }
     while True:
         raw_msg = client.recv(BUFSIZ)
-        # print(raw_msg)
+        print(raw_msg)
         # Process System Messages
         if raw_msg.decode("utf8").startswith("SYS"):
             raw_msg = raw_msg.decode("utf8")
@@ -44,25 +44,16 @@ def handle_client(client):  # Takes client socket as argument.
             # print(command, value)
             if command == "REQUEST_USER_KEY":
                 sock, user_data = get_user_public_key(username=value)
-                print(user_data)
                 if user_data:
                     client.send(bytes(f"SYS:{user_data['key']}", "utf8"))
                     session_key = client.recv(BUFSIZ).decode("utf8").replace("SYS:ENCRYPTED_SESSION_KEY:", "")
-                    client.send(bytes(f"SYS:ENCRYPTED_SESSION_KEY:RECEIVED", "utf8"))
                     signature = client.recv(BUFSIZ).decode("utf8").replace("SYS:SIGNATURE:", "")
-                    client.send(bytes(f"SYS:SIGNATURE:RECEIVED", "utf8"))
-                    print("------")
-                    print(session_key)
-                    print("------")
-                    print(signature)
 
                     my_user_data = clients[client]
 
                     sock.send(bytes(f"SYS:CLIENT_PUBLIC_KEY:{my_user_data['key']}", "utf8"))
                     sock.send(bytes(f"SYS:CLIENT_ENCRYPTED_SESSION_KEY:{session_key}", "utf8"))
                     sock.send(bytes(f"SYS:CLIENT_SIGNATURE:{signature}", "utf8"))
-
-
                 else:
                     client.send(bytes(f"SYS:NONE", "utf8"))
 
@@ -82,9 +73,10 @@ def handle_client(client):  # Takes client socket as argument.
 
 def broadcast(msg, prefix=""):  # prefix is for name identification.
     """Broadcasts a message to all the clients."""
-
+    print(type(msg))
+    print(type(prefix))
     for sock in clients:
-        sock.send(bytes(prefix, "utf8") + msg)
+        sock.send(bytes(prefix, "utf8") + bytes(msg, "utf8"))
 
 
 clients = {}

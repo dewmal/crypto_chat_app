@@ -6,7 +6,9 @@ import tkinter
 import crypto
 
 key = None
-session_key = None
+global_data = {
+    "session_key": None
+}
 
 
 def receive():
@@ -14,6 +16,7 @@ def receive():
     client_encrypted_session_key = None
     client_signature = None
     client_public_key = None
+    is_session_key_trusted = False
     while True:
         try:
             msg = client_socket.recv(BUFSIZ).decode("utf8")
@@ -29,21 +32,24 @@ def receive():
                     client_signature = msg.replace("SYS:CLIENT_SIGNATURE:", "")
                     client_signature = bytes.fromhex(client_signature)
 
-            if client_encrypted_session_key and client_signature and client_public_key:
-                print(client_encrypted_session_key)
-                print(client_signature)
-                print("Client public key print here for sadika",client_public_key)
-                # 1 extract session key
-                print(client_encrypted_session_key)
-                decrypted_session_key = crypto.decrypt_session_key(client_encrypted_session_key, my_rsa_key.export_key())
-                print('--debug-- decypted_session_key', decrypted_session_key)
+            if client_encrypted_session_key and client_signature and client_public_key and not global_data[
+                "session_key"]:
+                session_key = crypto.decrypt_session_key(client_encrypted_session_key,
+                                                         my_rsa_key.export_key())
                 is_session_key_trusted = crypto.verify_message_signature(client_public_key,
-                                                                         decrypted_session_key, client_signature)
-                print('--debug-- trusted session key:', is_session_key_trusted)
+                                                                         session_key, client_signature)
+                if is_session_key_trusted:
+                    global_data["session_key"] = session_key
+                    print("Client accept session key")
+                continue
+            print(global_data["session_key"] is not None)
+            if global_data["session_key"]:
+                print(msg)
+                msg_list.insert(tkinter.END, msg)
 
-                # msg_list.insert(tkinter.END, msg)
 
         except OSError:  # Possibly client has left the chat.
+            print(client_encrypted_session_key)
             break
 
 
@@ -51,6 +57,7 @@ def send(event=None):  # event is passed by binders.
     """Handles sending of messages."""
     msg = my_msg.get()
     my_msg.set("")  # Clears input field.
+    print(msg)
     client_socket.send(bytes(msg, "utf8"))
     if msg == "{quit}":
         client_socket.close()
@@ -106,13 +113,13 @@ ADDR = (HOST, PORT)
 client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.connect(ADDR)
 msg = client_socket.recv(BUFSIZ).decode("utf8")
-print(msg)
+# print(msg)
 
 crypto.make_and_save_user_rsa(passphrase=PASSWORD, username=USERNAME)
 my_rsa_key = crypto.load_user_rsa(username=USERNAME, passphrase=PASSWORD)
 session_key = crypto.make_session_key()
-print(my_rsa_key)
-print(my_rsa_key.publickey().export_key())
+# print(my_rsa_key)
+# print(my_rsa_key.publickey().export_key())
 # send encrypted session key and signature to server
 pub_key = my_rsa_key.publickey().export_key()
 pub_key = pub_key.decode("utf-8")
@@ -132,24 +139,14 @@ if CHAT_USERNAME:
             message_signature = crypto.sign_message(my_rsa_key.export_key(), session_key)
 
             client_socket.send(bytes(f"SYS:ENCRYPTED_SESSION_KEY:{encrypted_session_key.hex()}", "utf8"))
-            raw_msg = client_socket.recv(BUFSIZ).decode("utf8")
             client_socket.send(bytes(f"SYS:SIGNATURE:{message_signature.hex()}", "utf8"))
-            raw_msg = client_socket.recv(BUFSIZ).decode("utf8")
 
-            print(encrypted_session_key)
-
-            session_key = encrypted_session_key
             signature = message_signature
+            global_data["session_key"] = session_key
 
-    # other_user_pub = msg
+            print("Connected with chat application")
 
-    # print('--debug-- encypted session key', __encypted_session_key)
-    #
-    # message_signature = crypto.sign_message(my_rsa_key.export_key(), session_key)
-    # print('--debug-- signature', message_signature)
-
-else:
-    print("Chat Start")
+print("Chat Start")
 
 receive_thread = Thread(target=receive)
 receive_thread.start()
