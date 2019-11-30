@@ -42,11 +42,18 @@ def receive():
                     global_data["session_key"] = session_key
                     print("Client accept session key")
                 continue
-            print(global_data["session_key"] is not None)
             if global_data["session_key"]:
-                print(msg)
-                msg_list.insert(tkinter.END, msg)
-
+                msg_data = msg.split(":")
+                # print(msg_data)
+                decrypt_msg = crypto.decypt_message(global_data["session_key"], bytes.fromhex(msg_data[1]),
+                                                    bytes.fromhex(msg_data[2]), bytes.fromhex(msg_data[3]))
+                hash_decrypt_msg = crypto.hash_message(decrypt_msg)
+                print(hash_decrypt_msg)
+                print(bytes.fromhex(msg_data[4]))
+                if hash_decrypt_msg.digest() == bytes.fromhex(msg_data[4]):
+                    msg_list.insert(tkinter.END, f"{msg_data[0]} : {decrypt_msg}")
+                else:
+                    msg_list.insert(tkinter.END, "Hash Error")
 
         except OSError:  # Possibly client has left the chat.
             print(client_encrypted_session_key)
@@ -57,8 +64,9 @@ def send(event=None):  # event is passed by binders.
     """Handles sending of messages."""
     msg = my_msg.get()
     my_msg.set("")  # Clears input field.
-    print(msg)
-    client_socket.send(bytes(msg, "utf8"))
+    nonce, tag, cipher_text = crypto.encypted_message(global_data["session_key"], msg)
+    h = crypto.hash_message(msg)
+    client_socket.send(bytes(f"{nonce.hex()}:{tag.hex()}:{cipher_text.hex()}:{h.digest().hex()}", "utf8"))
     if msg == "{quit}":
         client_socket.close()
         top.quit()
