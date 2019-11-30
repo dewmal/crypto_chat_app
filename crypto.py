@@ -1,26 +1,25 @@
-import os
-
-from Crypto.PublicKey import RSA
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Hash import SHA256
+from Crypto.Signature import pkcs1_15
+from Crypto.PublicKey import RSA
 
 
 # Function to generate public and private key for a user. Only first login to application
-def make_and_save_user_rsa(username, passphrase):
+def make_and_save_user_rsa(passphrase, username):
     # generate a public and private key pair
     key = RSA.generate(2048)
 
     # encrpt key with passphrase using scrypt algo and store it in a file for later use
-    encrypted_key = key.export_key(passphrase=passphrase, pkcs=8, protection="scryptAndAES128-CBC")
+    encrypted_key = key.export_key(passphrase=passphrase, pkcs=8, protection="28-CBC")
 
     file_out = open(f"{username}_rsa_key.bin", "wb")
     file_out.write(encrypted_key)
 
 
 # Load rsa key from storage to memory
-def load_user_rsa(username, passphrase):
+def load_user_rsa(passphrase, username):
     encoded_key = open(f"{username}_rsa_key.bin", "rb").read()
     key = RSA.import_key(encoded_key, passphrase=passphrase)
     return key
@@ -71,15 +70,20 @@ def decypt_message(session_key, nonce, tag, ciphertext):
 
 
 def hash_message(plain_text):
-    return SHA256.new(data=plain_text.encode("utf-8")).digest()
+    return SHA256.new(data=plain_text.encode("utf-8"))
 
 
-# DO NOT include in actual code
-__other_user_rsa = RSA.generate(2048)
+def sign_message(my_private_key, data):
+    key = RSA.import_key(my_private_key)
+    h = SHA256.new(data)
+    return pkcs1_15.new(key).sign(h)
 
 
-def ask_other_user_public_key():
-    # TODO This should ask users public key over the network.
-    other_user_pub = __other_user_rsa.publickey().export_key()
-
-    return other_user_pub
+def verify_message_signature(other_public_key, data, message_signature):
+    key = RSA.import_key(other_public_key)
+    h = SHA256.new(data)
+    try:
+        pkcs1_15.new(key).verify(h, message_signature)
+        return True
+    except (ValueError, TypeError):
+        return False
