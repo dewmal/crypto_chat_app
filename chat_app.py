@@ -95,10 +95,23 @@ client_socket.send(bytes(msg, "utf8"))
 if CHAT_USERNAME:
     # pass
     client_socket.send(bytes(f"SYS:REQUEST_USER_KEY:{CHAT_USERNAME}", "utf8"))
-    msg = client_socket.recv(BUFSIZ).decode("utf8")
-    print(msg)
+    raw_msg = client_socket.recv(BUFSIZ).decode("utf8")
+
+    if raw_msg.startswith("SYS:"):
+        msg = raw_msg.split(":")
+        if msg[1] is not "NONE":
+            encrypted_session_key = crypto.encypt_session_key(session_key, msg[1])
+            message_signature = crypto.sign_message(my_rsa_key.export_key(), session_key)
+
+            client_socket.send(bytes(f"SYS:ENCRYPTED_SESSION_KEY:{encrypted_session_key}", "utf8"))
+            raw_msg = client_socket.recv(BUFSIZ).decode("utf8")
+            client_socket.send(bytes(f"SYS:SIGNATURE:{message_signature}", "utf8"))
+            raw_msg = client_socket.recv(BUFSIZ).decode("utf8")
+
+
+
     # other_user_pub = msg
-    # __encypted_session_key = crypto.encypt_session_key(session_key, other_user_pub)
+
     # print('--debug-- encypted session key', __encypted_session_key)
     #
     # message_signature = crypto.sign_message(my_rsa_key.export_key(), session_key)

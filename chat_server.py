@@ -33,11 +33,11 @@ def handle_client(client):  # Takes client socket as argument.
     }
     while True:
         raw_msg = client.recv(BUFSIZ)
-        print(raw_msg)
+        # print(raw_msg)
         # Process System Messages
         if raw_msg.decode("utf8").startswith("SYS"):
             raw_msg = raw_msg.decode("utf8")
-            print(raw_msg)
+            # print(raw_msg)
             raw_msg = raw_msg.split(":")
             command = raw_msg[1]
             value = raw_msg[2]
@@ -46,9 +46,18 @@ def handle_client(client):  # Takes client socket as argument.
                 user_data = get_user_public_key(username=value)
                 print(user_data)
                 if user_data:
-                    client.send(bytes(f"{user_data['key']}", "utf8"))
+                    client.send(bytes(f"SYS:{user_data['key']}", "utf8"))
+                    session_key = client.recv(BUFSIZ).decode("utf8").replace("SYS:ENCRYPTED_SESSION_KEY:", "")
+                    client.send(bytes(f"SYS:ENCRYPTED_SESSION_KEY:RECEIVED", "utf8"))
+                    signature = client.recv(BUFSIZ).decode("utf8").replace("SYS:SIGNATURE:", "")
+                    client.send(bytes(f"SYS:SIGNATURE:RECEIVED", "utf8"))
+                    print("------")
+                    print(session_key)
+                    print("------")
+                    print(signature)
+
                 else:
-                    client.send(bytes(f"No chat initiate with that user", "utf8"))
+                    client.send(bytes(f"SYS:NONE", "utf8"))
 
         else:
             msg = ""
