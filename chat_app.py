@@ -3,6 +3,10 @@
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 import tkinter
+import crypto
+
+key = None
+session_key = None
 
 
 def receive():
@@ -36,7 +40,7 @@ top.title("Chatter")
 
 messages_frame = tkinter.Frame(top)
 my_msg = tkinter.StringVar()  # For the messages to be sent.
-my_msg.set("Type your messages here.")
+my_msg.set("")
 scrollbar = tkinter.Scrollbar(messages_frame)  # To navigate through past messages.
 # Following will contain the messages.
 msg_list = tkinter.Listbox(messages_frame, height=15, width=50, yscrollcommand=scrollbar.set)
@@ -58,6 +62,11 @@ HOST = input('Enter host: ')
 PORT = input('Enter port: ')
 USERNAME = input('Enter Username: ')
 PASSWORD = input('Enter Password: ')
+CHAT_USERNAME = input('Chat username: ')
+
+if not HOST:
+    HOST = "127.0.0.1"
+
 if not PORT:
     PORT = 33000
 else:
@@ -68,6 +77,12 @@ ADDR = (HOST, PORT)
 
 client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.connect(ADDR)
+
+crypto.make_and_save_user_rsa(passphrase=PASSWORD, username=USERNAME)
+key = crypto.load_user_rsa(username=USERNAME, passphrase=PASSWORD)
+session_key = crypto.make_session_key()
+print(key)
+print(session_key)
 
 receive_thread = Thread(target=receive)
 receive_thread.start()

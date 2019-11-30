@@ -1,3 +1,5 @@
+import os
+
 from Crypto.PublicKey import RSA
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
@@ -6,20 +8,20 @@ from Crypto.Hash import SHA256
 
 
 # Function to generate public and private key for a user. Only first login to application
-def make_and_save_user_rsa(passphrase):
+def make_and_save_user_rsa(username, passphrase):
     # generate a public and private key pair
     key = RSA.generate(2048)
 
     # encrpt key with passphrase using scrypt algo and store it in a file for later use
     encrypted_key = key.export_key(passphrase=passphrase, pkcs=8, protection="scryptAndAES128-CBC")
 
-    file_out = open("rsa_key.bin", "wb")
+    file_out = open(f"{username}_rsa_key.bin", "wb")
     file_out.write(encrypted_key)
 
 
 # Load rsa key from storage to memory
-def load_user_rsa(passphrase):
-    encoded_key = open("rsa_key.bin", "rb").read()
+def load_user_rsa(username, passphrase):
+    encoded_key = open(f"{username}_rsa_key.bin", "rb").read()
     key = RSA.import_key(encoded_key, passphrase=passphrase)
     return key
 
