@@ -11,10 +11,38 @@ session_key = None
 
 def receive():
     """Handles receiving of messages."""
+    client_encrypted_session_key = None
+    client_signature = None
+    client_public_key = None
     while True:
         try:
             msg = client_socket.recv(BUFSIZ).decode("utf8")
-            msg_list.insert(tkinter.END, msg)
+
+            if msg.startswith("SYS:"):
+                if msg.startswith("SYS:CLIENT_PUBLIC_KEY:"):
+                    client_public_key = bytes(msg.replace("SYS:CLIENT_PUBLIC_KEY:", ""), "utf8")
+                if msg.startswith("SYS:CLIENT_ENCRYPTED_SESSION_KEY:"):
+                    client_encrypted_session_key = msg \
+                        .replace("SYS:CLIENT_ENCRYPTED_SESSION_KEY:", "")
+                    client_encrypted_session_key = bytes.fromhex(client_encrypted_session_key)
+                if msg.startswith("SYS:CLIENT_SIGNATURE:"):
+                    client_signature = msg.replace("SYS:CLIENT_SIGNATURE:", "")
+                    client_signature = bytes.fromhex(client_signature)
+
+            if client_encrypted_session_key and client_signature and client_public_key:
+                print(client_encrypted_session_key)
+                print(client_signature)
+                print("Client public key print here for sadika",client_public_key)
+                # 1 extract session key
+                print(client_encrypted_session_key)
+                decrypted_session_key = crypto.decrypt_session_key(client_encrypted_session_key, my_rsa_key.export_key())
+                print('--debug-- decypted_session_key', decrypted_session_key)
+                is_session_key_trusted = crypto.verify_message_signature(client_public_key,
+                                                                         decrypted_session_key, client_signature)
+                print('--debug-- trusted session key:', is_session_key_trusted)
+
+                # msg_list.insert(tkinter.END, msg)
+
         except OSError:  # Possibly client has left the chat.
             break
 
@@ -35,8 +63,23 @@ def on_closing(event=None):
     send()
 
 
+# ----Now comes the sockets part----
+HOST = input('Enter host: ')
+PORT = input('Enter port: ')
+USERNAME = input('Enter Username: ')
+PASSWORD = input('Enter Password: ')
+CHAT_USERNAME = input('Chat username: ')
+
+if not HOST:
+    HOST = "127.0.0.1"
+
+if not PORT:
+    PORT = 33000
+else:
+    PORT = int(PORT)
+
 top = tkinter.Tk()
-top.title("Chatter")
+top.title(f"Chatter {USERNAME}")
 
 messages_frame = tkinter.Frame(top)
 my_msg = tkinter.StringVar()  # For the messages to be sent.
@@ -56,21 +99,6 @@ send_button = tkinter.Button(top, text="Send", command=send)
 send_button.pack()
 
 top.protocol("WM_DELETE_WINDOW", on_closing)
-
-# ----Now comes the sockets part----
-HOST = input('Enter host: ')
-PORT = input('Enter port: ')
-USERNAME = input('Enter Username: ')
-PASSWORD = input('Enter Password: ')
-CHAT_USERNAME = input('Chat username: ')
-
-if not HOST:
-    HOST = "127.0.0.1"
-
-if not PORT:
-    PORT = 33000
-else:
-    PORT = int(PORT)
 
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
@@ -103,12 +131,15 @@ if CHAT_USERNAME:
             encrypted_session_key = crypto.encypt_session_key(session_key, msg[1])
             message_signature = crypto.sign_message(my_rsa_key.export_key(), session_key)
 
-            client_socket.send(bytes(f"SYS:ENCRYPTED_SESSION_KEY:{encrypted_session_key}", "utf8"))
+            client_socket.send(bytes(f"SYS:ENCRYPTED_SESSION_KEY:{encrypted_session_key.hex()}", "utf8"))
             raw_msg = client_socket.recv(BUFSIZ).decode("utf8")
-            client_socket.send(bytes(f"SYS:SIGNATURE:{message_signature}", "utf8"))
+            client_socket.send(bytes(f"SYS:SIGNATURE:{message_signature.hex()}", "utf8"))
             raw_msg = client_socket.recv(BUFSIZ).decode("utf8")
 
+            print(encrypted_session_key)
 
+            session_key = encrypted_session_key
+            signature = message_signature
 
     # other_user_pub = msg
 
@@ -118,7 +149,7 @@ if CHAT_USERNAME:
     # print('--debug-- signature', message_signature)
 
 else:
-    pass
+    print("Chat Start")
 
 receive_thread = Thread(target=receive)
 receive_thread.start()

@@ -8,7 +8,7 @@ def get_user_public_key(username):
     for sock in clients:
         client_data = clients[sock]
         if client_data["name"] == username:
-            return client_data
+            return sock, client_data
 
 
 def accept_incoming_connections():
@@ -43,7 +43,7 @@ def handle_client(client):  # Takes client socket as argument.
             value = raw_msg[2]
             # print(command, value)
             if command == "REQUEST_USER_KEY":
-                user_data = get_user_public_key(username=value)
+                sock, user_data = get_user_public_key(username=value)
                 print(user_data)
                 if user_data:
                     client.send(bytes(f"SYS:{user_data['key']}", "utf8"))
@@ -55,6 +55,13 @@ def handle_client(client):  # Takes client socket as argument.
                     print(session_key)
                     print("------")
                     print(signature)
+
+                    my_user_data = clients[client]
+
+                    sock.send(bytes(f"SYS:CLIENT_PUBLIC_KEY:{my_user_data['key']}", "utf8"))
+                    sock.send(bytes(f"SYS:CLIENT_ENCRYPTED_SESSION_KEY:{session_key}", "utf8"))
+                    sock.send(bytes(f"SYS:CLIENT_SIGNATURE:{signature}", "utf8"))
+
 
                 else:
                     client.send(bytes(f"SYS:NONE", "utf8"))
