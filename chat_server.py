@@ -4,6 +4,13 @@ from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 
 
+def get_user_public_key(username):
+    for sock in clients:
+        client_data = clients[sock]
+        if client_data["name"] == username:
+            return client_data
+
+
 def accept_incoming_connections():
     """Sets up handling for incoming clients."""
     while True:
@@ -17,23 +24,44 @@ def accept_incoming_connections():
 def handle_client(client):  # Takes client socket as argument.
     """Handles a single client connection."""
 
-    name = client.recv(BUFSIZ).decode("utf8")
-    welcome = 'Welcome %s! If you ever want to quit, type {quit} to exit.' % name
-    client.send(bytes(welcome, "utf8"))
-    msg = "%s has joined the chat!" % name
-    broadcast(bytes(msg, "utf8"))
-    clients[client] = name
-
+    welcome_message = client.recv(BUFSIZ).decode("utf8")
+    welcome_message = welcome_message.split(":")
+    name = welcome_message[2]
+    clients[client] = {
+        "name": name,
+        "key": welcome_message[3]
+    }
     while True:
-        msg = client.recv(BUFSIZ)
-        if msg != bytes("{quit}", "utf8"):
-            broadcast(msg, name + ": ")
+        raw_msg = client.recv(BUFSIZ)
+        print(raw_msg)
+        # Process System Messages
+        if raw_msg.decode("utf8").startswith("SYS"):
+            raw_msg = raw_msg.decode("utf8")
+            print(raw_msg)
+            raw_msg = raw_msg.split(":")
+            command = raw_msg[1]
+            value = raw_msg[2]
+            # print(command, value)
+            if command == "REQUEST_USER_KEY":
+                user_data = get_user_public_key(username=value)
+                print(user_data)
+                if user_data:
+                    client.send(bytes(f"{user_data['key']}", "utf8"))
+                else:
+                    client.send(bytes(f"No chat initiate with that user", "utf8"))
+
         else:
-            client.send(bytes("{quit}", "utf8"))
-            client.close()
-            del clients[client]
-            broadcast(bytes("%s has left the chat." % name, "utf8"))
-            break
+            msg = ""
+            print(msg)
+
+            if msg != bytes("{quit}", "utf8"):
+                broadcast(msg, name + ": ")
+            else:
+                client.send(bytes("{quit}", "utf8"))
+                client.close()
+                del clients[client]
+                broadcast(bytes("%s has left the chat." % name, "utf8"))
+                break
 
 
 def broadcast(msg, prefix=""):  # prefix is for name identification.

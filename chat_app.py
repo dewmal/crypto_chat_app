@@ -77,12 +77,35 @@ ADDR = (HOST, PORT)
 
 client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.connect(ADDR)
+msg = client_socket.recv(BUFSIZ).decode("utf8")
+print(msg)
 
 crypto.make_and_save_user_rsa(passphrase=PASSWORD, username=USERNAME)
-key = crypto.load_user_rsa(username=USERNAME, passphrase=PASSWORD)
+my_rsa_key = crypto.load_user_rsa(username=USERNAME, passphrase=PASSWORD)
 session_key = crypto.make_session_key()
-print(key)
-print(session_key)
+print(my_rsa_key)
+print(my_rsa_key.publickey().export_key())
+# send encrypted session key and signature to server
+pub_key = my_rsa_key.publickey().export_key()
+pub_key = pub_key.decode("utf-8")
+msg = f"SYS:SHARE_MY_PUBLIC_KEY:{USERNAME}:{pub_key}"
+client_socket.send(bytes(msg, "utf8"))
+
+# 4 share session key as encypted message
+if CHAT_USERNAME:
+    # pass
+    client_socket.send(bytes(f"SYS:REQUEST_USER_KEY:{CHAT_USERNAME}", "utf8"))
+    msg = client_socket.recv(BUFSIZ).decode("utf8")
+    print(msg)
+    # other_user_pub = msg
+    # __encypted_session_key = crypto.encypt_session_key(session_key, other_user_pub)
+    # print('--debug-- encypted session key', __encypted_session_key)
+    #
+    # message_signature = crypto.sign_message(my_rsa_key.export_key(), session_key)
+    # print('--debug-- signature', message_signature)
+
+else:
+    pass
 
 receive_thread = Thread(target=receive)
 receive_thread.start()
