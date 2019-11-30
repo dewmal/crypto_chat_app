@@ -58,7 +58,7 @@ def handle_client(client):  # Takes client socket as argument.
                     client.send(bytes(f"SYS:NONE", "utf8"))
 
         else:
-            msg = ""
+            msg = raw_msg.decode("utf8")
             print(msg)
 
             if msg != bytes("{quit}", "utf8"):
